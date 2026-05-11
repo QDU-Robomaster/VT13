@@ -222,46 +222,57 @@ class VT13 : public LibXR::Application {
     uint8_t frame_buffer[VT13_FRAME_SIZE] = {0};
     std::size_t frame_pos = 0;
     CMD::Data rc_data;
-
+    LibXR::ReadOperation read_op;
+     
     while (1) {
-      if (vt13->uart_->Read({rx_buffer, RX_BUFFER_SIZE}, vt13->op_) ==
-          LibXR::ErrorCode::OK) {
-        for (std::size_t idx = 0; idx < RX_BUFFER_SIZE; ++idx) {
-          uint8_t rx_byte = rx_buffer[idx];
+      if (vt13->uart_->Read({nullptr, 0}, vt13->op_) == LibXR::ErrorCode::OK) {
+        while (vt13->uart_->read_port_->Size() > 0) {
+          const std::size_t AVAILABLE_SIZE = vt13->uart_->read_port_->Size();
+          const std::size_t READ_SIZE =
+              AVAILABLE_SIZE > RX_BUFFER_SIZE ? RX_BUFFER_SIZE : AVAILABLE_SIZE;
 
-          /* 字节流状态机：先同步2字节帧头，再累积到完整21字节帧 */
-          if (frame_pos == 0) {
-            if (rx_byte != VT13_FRAME_HEAD_0) {
-              continue;
-            }
-            frame_buffer[frame_pos++] = rx_byte;
-          } else if (frame_pos == 1) {
-            if (rx_byte == VT13_FRAME_HEAD_1) {
-              frame_buffer[frame_pos++] = rx_byte;
-            } else {
-              frame_pos = 0;
-              /* 若当前字节本身也是首字节，则直接作为下一帧起点继续对齐 */
-              if (rx_byte == VT13_FRAME_HEAD_0) {
-                frame_buffer[frame_pos++] = rx_byte;
+          if (vt13->uart_->Read({rx_buffer, READ_SIZE}, read_op) !=
+              LibXR::ErrorCode::OK) {
+            break;
+          }
+
+          for (std::size_t idx = 0; idx < READ_SIZE; ++idx) {
+            uint8_t rx_byte = rx_buffer[idx];
+
+            /* 字节流状态机：先同步2字节帧头，再累积到完整21字节帧 */
+            if (frame_pos == 0) {
+              if (rx_byte != VT13_FRAME_HEAD_0) {
+                continue;
               }
-            }
-          } else {
-            frame_buffer[frame_pos++] = rx_byte;
-            if (frame_pos < VT13_FRAME_SIZE) {
-              continue;
-            }
+              frame_buffer[frame_pos++] = rx_byte;
+            } else if (frame_pos == 1) {
+              if (rx_byte == VT13_FRAME_HEAD_1) {
+                frame_buffer[frame_pos++] = rx_byte;
+              } else {
+                frame_pos = 0;
+                /* 若当前字节本身也是首字节，则直接作为下一帧起点继续对齐 */
+                if (rx_byte == VT13_FRAME_HEAD_0) {
+                  frame_buffer[frame_pos++] = rx_byte;
+                }
+              }
+            } else {
+              frame_buffer[frame_pos++] = rx_byte;
+              if (frame_pos < VT13_FRAME_SIZE) {
+                continue;
+              }
 
-            frame_pos = 0;
-            if (vt13->ParseRC(frame_buffer, rc_data) == LibXR::ErrorCode::OK) {
-              /* 仅在完整且通过校验的帧上更新时间戳并下发控制数据 */
-              vt13->last_time_ = LibXR::Timebase::GetMilliseconds();
-              vt13->cmd_->FeedRC(CMD::RCInputSource::RC_INPUT_VT13, rc_data);
+              frame_pos = 0;
+              if (vt13->ParseRC(frame_buffer, rc_data) ==
+                  LibXR::ErrorCode::OK) {
+                /* 仅在完整且通过校验的帧上更新时间戳并下发控制数据 */
+                vt13->last_time_ = LibXR::Timebase::GetMilliseconds();
+                vt13->cmd_->FeedRC(CMD::RCInputSource::RC_INPUT_VT13, rc_data);
+              }
             }
           }
         }
       }
       vt13->CheckoutOffline();
-      LibXR::Thread::Sleep(2);
     }
   }
 
