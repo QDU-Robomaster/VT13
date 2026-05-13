@@ -223,7 +223,7 @@ class VT13 : public LibXR::Application {
     std::size_t frame_pos = 0;
     CMD::Data rc_data;
     LibXR::ReadOperation read_op;
-     
+
     while (1) {
       if (vt13->uart_->Read({nullptr, 0}, vt13->op_) == LibXR::ErrorCode::OK) {
         while (vt13->uart_->read_port_->Size() > 0) {
@@ -493,9 +493,9 @@ class VT13 : public LibXR::Application {
       }
       output_data.chassis.z = 0.0f;
 
-      output_data.gimbal.pit = static_cast<float>(curr_rc.y) * MOUSE_SCALER;
+      output_data.gimbal.rol = static_cast<float>(curr_rc.y) * MOUSE_SCALER;
       output_data.gimbal.yaw = -static_cast<float>(curr_rc.x) * MOUSE_SCALER;
-      output_data.gimbal.rol = 0.0f;
+      output_data.gimbal.pit = 0.0f;
 
       if (curr_rc.press_l != 0) {
         output_data.launcher.isfire = true;
@@ -518,10 +518,10 @@ class VT13 : public LibXR::Application {
       output_data.gimbal.yaw =
           2.0f * (static_cast<float>(curr_rc.ch_r_x) - VT13_CH_VALUE_MID) *
           INV_FULL_RANGE;
-      output_data.gimbal.pit =
+      output_data.gimbal.rol =
           2.0f * (static_cast<float>(curr_rc.ch_r_y) - VT13_CH_VALUE_MID) *
           INV_FULL_RANGE;
-      output_data.gimbal.rol = 0.0f;
+      output_data.gimbal.pit = 0.0f;
 
       if (curr_rc.trig != 0) {
         output_data.launcher.isfire = true;
