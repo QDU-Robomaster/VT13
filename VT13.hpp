@@ -482,9 +482,9 @@ class VT13 : public LibXR::Application {
       }
       output_data.chassis.z = 0.0f;
 
-      output_data.gimbal.rol = static_cast<float>(curr_rc.y) * MOUSE_SCALER;
-      output_data.gimbal.pit = 0.0f;
-      output_data.gimbal.yaw = -static_cast<float>(curr_rc.x) * MOUSE_SCALER;
+      output_data.gimbal.pit = static_cast<float>(curr_rc.y) * MOUSE_SCALER;
+      output_data.gimbal.yaw = static_cast<float>(curr_rc.x) * MOUSE_SCALER;
+      output_data.gimbal.rol = 0.0f;
 
       if (curr_rc.press_l != 0) {
         output_data.launcher.isfire = true;
@@ -507,10 +507,10 @@ class VT13 : public LibXR::Application {
       output_data.gimbal.yaw =
           2.0f * (static_cast<float>(curr_rc.ch_r_x) - VT13_CH_VALUE_MID) *
           INV_FULL_RANGE;
-      output_data.gimbal.rol =
+      output_data.gimbal.pit =
           2.0f * (static_cast<float>(curr_rc.ch_r_y) - VT13_CH_VALUE_MID) *
           INV_FULL_RANGE;
-      output_data.gimbal.pit = 0.0f;
+      output_data.gimbal.rol = 0.0f;
 
       if (curr_rc.trig != 0) {
         output_data.launcher.isfire = true;
