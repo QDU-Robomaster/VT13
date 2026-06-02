@@ -215,8 +215,6 @@ class VT13 : public LibXR::Application {
    * @param vt13 VT13实例指针
    */
   static void ThreadVT13(VT13* vt13) {
-    vt13->uart_->read_port_->Reset();
-
     constexpr std::size_t RX_BUFFER_SIZE = 64;
     uint8_t rx_buffer[RX_BUFFER_SIZE] = {0};
     uint8_t frame_buffer[VT13_FRAME_SIZE] = {0};
