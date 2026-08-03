@@ -5,7 +5,7 @@
 module_name: VT13
 module_description: VT13 link receiver parsing
 constructor_args:
-  - CMD: '@cmd'
+  - CMD: '@nullptr'
   - task_stack_depth_uart: 1536
   - thread_priority_uart: LibXR::Thread::Priority::HIGH
 required_hardware: vt13 dma uart
@@ -184,20 +184,28 @@ class VT13 : public LibXR::Application {
    * @param task_stack_depth_uart UART任务栈深度
    * @param thread_priority_uart UART线程优先级
    */
-  VT13(LibXR::HardwareContainer& hw, LibXR::ApplicationManager& app, CMD& cmd,
+  VT13(LibXR::HardwareContainer& hw, LibXR::ApplicationManager& app, CMD* cmd,
        uint32_t task_stack_depth_uart,
        LibXR::Thread::Priority thread_priority_uart =
            LibXR::Thread::Priority::HIGH)
-      : cmd_(&cmd),
-        uart_(hw.Find<LibXR::UART>("uart_ext_controller")),
+      : cmd_(cmd),
+        uart_(nullptr),
         sem_(0),
         op_(sem_, 64) {
+    ASSERT(cmd_ != nullptr);
+    uart_ = hw.Find<LibXR::UART>("uart_ext_controller");
     uart_->SetConfig({921600, LibXR::UART::Parity::NO_PARITY, 8, 1});
     /* 创建UART线程 */
     thread_uart_.Create(this, ThreadVT13, "uart_vt13", task_stack_depth_uart,
                         thread_priority_uart);
     app.Register(*this);
   }
+
+  VT13(LibXR::HardwareContainer& hw, LibXR::ApplicationManager& app, CMD& cmd,
+       uint32_t task_stack_depth_uart,
+       LibXR::Thread::Priority thread_priority_uart =
+           LibXR::Thread::Priority::HIGH)
+      : VT13(hw, app, &cmd, task_stack_depth_uart, thread_priority_uart) {}
 
   /**
    * @brief 获取VT13事件对象
