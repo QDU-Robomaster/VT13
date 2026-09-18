@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 /* clang-format off */
 /* === MODULE MANIFEST V2 ===
 module_name: VT13
@@ -182,21 +184,27 @@ class VT13
     return 1u << (KEY_U - KEY_W_U);
   }
 
+  struct Param
+  {
+    uint32_t task_stack_depth_uart;  ///< UART任务栈深度
+    LibXR::Thread::Priority thread_priority_uart;  ///< UART线程优先级
+  };
+
   /**
    * @brief VT13构造函数
    * @param cmd 控制命令对象引用
-   * @param task_stack_depth_uart UART任务栈深度
-   * @param thread_priority_uart UART线程优先级
+   * @param param Value configuration.
    */
-  VT13(LibXR::UART* external_uart_ext_controller, CMD& cmd,
-       uint32_t task_stack_depth_uart,
-       LibXR::Thread::Priority thread_priority_uart = LibXR::Thread::Priority::HIGH)
-      : cmd_(&cmd), uart_(external_uart_ext_controller), sem_(0), op_(sem_, 64)
+  VT13(
+      LibXR::UART& uart,
+      CMD& cmd,
+      const Param& param = {.task_stack_depth_uart = 1536, .thread_priority_uart = LibXR::Thread::Priority::HIGH})
+      : cmd_(&cmd), uart_(std::addressof(uart)), sem_(0), op_(sem_, 64)
   {
     uart_->SetConfig({921600, LibXR::UART::Parity::NO_PARITY, 8, 1});
     /* 创建UART线程 */
-    thread_uart_.Create(this, ThreadVT13, "uart_vt13", task_stack_depth_uart,
-                        thread_priority_uart);
+    thread_uart_.Create(this, ThreadVT13, "uart_vt13", param.task_stack_depth_uart,
+                        param.thread_priority_uart);
   }
 
   /**
