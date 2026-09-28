@@ -4,7 +4,6 @@
 
 /* clang-format off */
 /* === MODULE MANIFEST V2 ===
-module_name: VT13
 module_description: VT13 link receiver parsing
 depends:
 - id: QDU-Robomaster/CMD
