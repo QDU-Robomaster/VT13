@@ -213,11 +213,6 @@ class VT13
   LibXR::Event& GetEvent() { return vt13_event_; }
 
   /**
-   * @brief 监控回调
-   */
-  void OnMonitor() {}
-
-  /**
    * @brief VT13 UART读取线程
    * @param vt13 VT13实例指针
    */
