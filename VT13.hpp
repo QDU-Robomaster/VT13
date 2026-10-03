@@ -255,10 +255,9 @@ class VT13
    * @param param 构造参数。
    *              Construction parameters.
    */
-  VT13(
-      LibXR::UART& uart,
-      CMD& cmd,
-      const Param& param = {.task_stack_depth_uart = 1536, .thread_priority_uart = LibXR::Thread::Priority::HIGH})
+  VT13(LibXR::UART& uart, CMD& cmd,
+       const Param& param = {.task_stack_depth_uart = 1536,
+                             .thread_priority_uart = LibXR::Thread::Priority::HIGH})
       : cmd_(&cmd), uart_(std::addressof(uart)), sem_(0), op_(sem_, 64)
   {
     uart_->SetConfig({921600, LibXR::UART::Parity::NO_PARITY, 8, 1});
