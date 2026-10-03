@@ -18,71 +18,86 @@ depends:
 #include "thread.hpp"
 #include "uart.hpp"
 
+/// 帧头第 1 字节
+/// First byte of the frame header
 #define VT13_FRAME_HEAD_0 (0xA9u)
+/// 帧头第 2 字节
+/// Second byte of the frame header
 #define VT13_FRAME_HEAD_1 (0x53u)
 
-/**
- * @brief VT13遥控器通道值范围定义
- */
-#define VT13_CH_VALUE_MIN (364u)  /* 通道最小值 */
-#define VT13_CH_VALUE_MID (1024u) /* 通道中间值 */
-#define VT13_CH_VALUE_MAX (1684u) /* 通道最大值 */
+/// 通道最小值
+/// Minimum channel value
+#define VT13_CH_VALUE_MIN (364u)
+/// 通道中间值
+/// Middle channel value
+#define VT13_CH_VALUE_MID (1024u)
+/// 通道最大值
+/// Maximum channel value
+#define VT13_CH_VALUE_MAX (1684u)
 
 /**
- * @class VT13
- * @brief VT13链路接收机数据解析类
+ * @brief VT13 链路遥控解析模块。
+ *        VT13 link remote controller Module.
+ *
+ * @details 从 UART 接收 21 字节协议帧，向 CMD 输入控制量，并把挡位开关、自定义按键、
+ *          拨轮和键鼠变化作为事件发出。
+ *          Receives 21-byte protocol frames over UART, feeds control data to CMD and
+ *          emits switch, custom key, dial and keyboard and mouse changes as events.
  */
 class VT13
 {
  public:
-  static constexpr std::size_t VT13_FRAME_SIZE = 21;
-  static constexpr std::size_t VT13_PAYLOAD_SIZE_FOR_CRC = 19;
+  static constexpr std::size_t VT13_FRAME_SIZE = 21;  ///< 帧长度，单位字节
+  ///< Frame length in bytes
+  static constexpr std::size_t VT13_PAYLOAD_SIZE_FOR_CRC = 19;  ///< CRC 覆盖的字节数
+  ///< Number of bytes covered by the CRC
 
   /**
-   * @brief 控制源枚举
+   * @brief 控制源。
+   *        Control source.
    */
   enum class ControlSource : uint8_t
   {
-    VT13_CTRL_SOURCE_SW = 0x00,
-    VT13_CTRL_SOURCE_MOUSE = 0x01,
+    VT13_CTRL_SOURCE_SW = 0x00,     ///< 遥控器模式 Remote controller mode
+    VT13_CTRL_SOURCE_MOUSE = 0x01,  ///< 键鼠模式 Keyboard and mouse mode
   };
 
   /**
-   * @brief VT13拨杆位置与扩展事件枚举
+   * @brief 挡位开关位置与扩展事件 ID。
+   *        Switch positions and extended event IDs.
    */
   enum class SwitchPos : uint16_t
   {
-    /* 切换开关和自定义按键 */
-    VT13_KEY_RELEASE_L = 0x100, /* 自定义左键松开 */
-    VT13_KEY_PRESSED_L,         /* 自定义左键按下 */
-    VT13_KEY_RELEASE_R,         /* 自定义右键松开 */
-    VT13_KEY_PRESSED_R,         /* 自定义右键按下 */
-    VT13_KEY_RELEASE_PAUSED,    /* 暂停键松开 */
-    VT13_KEY_PRESSED_PAUSED,    /* 暂停键按下 */
-    VT13_KEY_RELEASE_TRIG,      /* 扳机松开 */
-    VT13_KEY_PRESSED_TRIG,      /* 扳机按下 */
+    VT13_KEY_RELEASE_L = 0x100,  ///< 自定义左键松开 Custom left key released
+    VT13_KEY_PRESSED_L,          ///< 自定义左键按下 Custom left key pressed
+    VT13_KEY_RELEASE_R,          ///< 自定义右键松开 Custom right key released
+    VT13_KEY_PRESSED_R,          ///< 自定义右键按下 Custom right key pressed
+    VT13_KEY_RELEASE_PAUSED,     ///< 暂停键松开 Pause key released
+    VT13_KEY_PRESSED_PAUSED,     ///< 暂停键按下 Pause key pressed
+    VT13_KEY_RELEASE_TRIG,       ///< 扳机松开 Trigger released
+    VT13_KEY_PRESSED_TRIG,       ///< 扳机按下 Trigger pressed
 
-    VT13_SW_POS_C = 0x00, /* C档(上) */
-    VT13_SW_POS_N = 0x01, /* N档(中) */
-    VT13_SW_POS_S = 0x02, /* S档(下) */
-    VT13_SW_POS_NUM = 3,  /* 档位数量 */
+    VT13_SW_POS_C = 0x00,  ///< C 档（上） Position C (up)
+    VT13_SW_POS_N = 0x01,  ///< N 档（中） Position N (middle)
+    VT13_SW_POS_S = 0x02,  ///< S 档（下） Position S (down)
+    VT13_SW_POS_NUM = 3,   ///< 档位数量 Number of positions
 
-    /* 拨轮触碰事件：上拨短触/上拨长触/下拨触发 */
-    VT13_DIAL_UP_SHORT = 0x120, /* 拨轮上拨短触 */
-    VT13_DIAL_UP_LONG,          /* 拨轮上拨长触 */
-    VT13_DIAL_DOWN_TOUCH,       /* 拨轮下拨触发 */
+    VT13_DIAL_UP_SHORT = 0x120,  ///< 拨轮上拨短触 Dial pushed up, short touch
+    VT13_DIAL_UP_LONG,           ///< 拨轮上拨长触 Dial pushed up, long touch
+    VT13_DIAL_DOWN_TOUCH,        ///< 拨轮下拨 Dial pushed down
 
-    /* 按键动作切换结果：可直接绑定业务语义 */
-    VT13_KEY_PAUSE_TOGGLE_ON = 0x130, /* 暂停键切换后ON */
-    VT13_KEY_PAUSE_TOGGLE_OFF,        /* 暂停键切换后OFF */
-    VT13_KEY_CUSTOM_L_TOGGLE_ON,      /* 自定义左键切换后ON */
-    VT13_KEY_CUSTOM_L_TOGGLE_OFF,     /* 自定义左键切换后OFF */
-    VT13_KEY_CUSTOM_R_TOGGLE_ON,      /* 自定义右键切换后ON */
-    VT13_KEY_CUSTOM_R_TOGGLE_OFF,     /* 自定义右键切换后OFF */
+    VT13_KEY_PAUSE_TOGGLE_ON = 0x130,  ///< 暂停键切换为 ON Pause key toggled ON
+    VT13_KEY_PAUSE_TOGGLE_OFF,         ///< 暂停键切换为 OFF Pause key toggled OFF
+    VT13_KEY_CUSTOM_L_TOGGLE_ON,       ///< 自定义左键切换为 ON Custom left key toggled ON
+    VT13_KEY_CUSTOM_L_TOGGLE_OFF,  ///< 自定义左键切换为 OFF Custom left key toggled OFF
+    VT13_KEY_CUSTOM_R_TOGGLE_ON,   ///< 自定义右键切换为 ON Custom right key toggled ON
+    VT13_KEY_CUSTOM_R_TOGGLE_OFF,  ///< 自定义右键切换为 OFF Custom right key toggled OFF
   };
 
   /**
-   * @brief 键盘与鼠标事件编码枚举
+   * @brief 键盘与鼠标事件编码，`KEY_W` 到 `KEY_B` 与键盘位图的位序一致。
+   *        Keyboard and mouse event codes; `KEY_W` to `KEY_B` follow the bit order of the
+   *        keyboard bitmap.
    */
   enum class Key : uint8_t
   {
@@ -113,33 +128,55 @@ class VT13
   };
 
   /**
-   * @brief VT13协议解包后的原始数据
+   * @brief VT13 协议解包后的原始数据。
+   *        Raw data unpacked from the VT13 protocol.
    */
   typedef struct
   {
-    uint16_t ch_r_x;
-    uint16_t ch_r_y;
-    uint16_t ch_l_x;
-    uint16_t ch_l_y;
-    uint8_t sw;
-    uint8_t pause;
-    uint8_t key_l;
-    uint8_t key_r;
-    uint16_t dial;
-    uint8_t trig;
-    int16_t x;
-    int16_t y;
-    int16_t z;
-    uint8_t press_l;
-    uint8_t press_r;
-    uint8_t press_m;
-    uint16_t key;
+    uint16_t ch_r_x;  ///< 右摇杆 X，364 到 1684
+    ///< Right stick X, 364 to 1684
+    uint16_t ch_r_y;  ///< 右摇杆 Y，364 到 1684
+    ///< Right stick Y, 364 to 1684
+    uint16_t ch_l_x;  ///< 左摇杆 X，364 到 1684
+    ///< Left stick X, 364 to 1684
+    uint16_t ch_l_y;  ///< 左摇杆 Y，364 到 1684
+    ///< Left stick Y, 364 to 1684
+    uint8_t sw;  ///< 挡位开关位置，0 到 2
+    ///< Switch position, 0 to 2
+    uint8_t pause;  ///< 暂停键状态
+    ///< Pause key state
+    uint8_t key_l;  ///< 自定义左键状态
+    ///< Custom left key state
+    uint8_t key_r;  ///< 自定义右键状态
+    ///< Custom right key state
+    uint16_t dial;  ///< 拨轮值，364 到 1684
+    ///< Dial value, 364 to 1684
+    uint8_t trig;  ///< 扳机状态
+    ///< Trigger state
+    int16_t x;  ///< 鼠标 X 方向移动量
+    ///< Mouse movement along X
+    int16_t y;  ///< 鼠标 Y 方向移动量
+    ///< Mouse movement along Y
+    int16_t z;  ///< 鼠标滚轮移动量
+    ///< Mouse wheel movement
+    uint8_t press_l;  ///< 鼠标左键状态
+    ///< Left mouse button state
+    uint8_t press_r;  ///< 鼠标右键状态
+    ///< Right mouse button state
+    uint8_t press_m;  ///< 鼠标中键状态
+    ///< Middle mouse button state
+    uint16_t key;  ///< 键盘按键位图，位序与 `Key::KEY_W` 到 `Key::KEY_B` 一致
+    ///< Keyboard bitmap, bit order follows `Key::KEY_W` to `Key::KEY_B`
   } Data;
 
   /**
-   * @brief 计算Shift组合键事件编码
-   * @param key 基础按键
-   * @return Shift组合后的事件值
+   * @brief 计算 Shift 组合键的事件 ID。
+   *        Compute the event ID of a key combined with Shift.
+   *
+   * @param key 基础按键。
+   *            Base key.
+   * @return 加上 1 倍 `KEY_NUM` 的事件 ID。
+   *         Event ID increased by 1 times `KEY_NUM`.
    */
   constexpr uint32_t ShiftWith(Key key)
   {
@@ -147,9 +184,13 @@ class VT13
   }
 
   /**
-   * @brief 计算Ctrl组合键事件编码
-   * @param key 基础按键
-   * @return Ctrl组合后的事件值
+   * @brief 计算 Ctrl 组合键的事件 ID。
+   *        Compute the event ID of a key combined with Ctrl.
+   *
+   * @param key 基础按键。
+   *            Base key.
+   * @return 加上 2 倍 `KEY_NUM` 的事件 ID。
+   *         Event ID increased by 2 times `KEY_NUM`.
    */
   constexpr uint32_t CtrlWith(Key key)
   {
@@ -157,9 +198,13 @@ class VT13
   }
 
   /**
-   * @brief 计算Shift+Ctrl组合键事件编码
-   * @param key 基础按键
-   * @return Shift+Ctrl组合后的事件值
+   * @brief 计算 Shift+Ctrl 组合键的事件 ID。
+   *        Compute the event ID of a key combined with Shift+Ctrl.
+   *
+   * @param key 基础按键。
+   *            Base key.
+   * @return 加上 3 倍 `KEY_NUM` 的事件 ID。
+   *         Event ID increased by 3 times `KEY_NUM`.
    */
   constexpr uint32_t ShiftCtrlWith(Key key)
   {
@@ -167,9 +212,13 @@ class VT13
   }
 
   /**
-   * @brief 获取键盘位图中的原始bit掩码
-   * @param key 键位枚举
-   * @return 对应bit值，不在W~B范围则返回0
+   * @brief 获取按键在键盘位图中的位掩码。
+   *        Get the bit mask of a key in the keyboard bitmap.
+   *
+   * @param key 按键。
+   *            Key.
+   * @return 对应的位掩码；`KEY_W` 到 `KEY_B` 之外为 0。
+   *         The bit mask; 0 outside `KEY_W` to `KEY_B`.
    */
   constexpr uint32_t RawValue(Key key)
   {
@@ -183,16 +232,28 @@ class VT13
     return 1u << (KEY_U - KEY_W_U);
   }
 
+  /**
+   * @brief 构造参数。
+   *        Construction parameters.
+   */
   struct Param
   {
-    uint32_t task_stack_depth_uart;  ///< UART任务栈深度
-    LibXR::Thread::Priority thread_priority_uart;  ///< UART线程优先级
+    uint32_t task_stack_depth_uart;  ///< 接收线程栈深
+    ///< Receive thread stack depth
+    LibXR::Thread::Priority thread_priority_uart;  ///< 接收线程优先级
+    ///< Receive thread priority
   };
 
   /**
-   * @brief VT13构造函数
-   * @param cmd 控制命令对象引用
-   * @param param Value configuration.
+   * @brief 构造 VT13，配置串口并创建接收线程。
+   *        Construct VT13, configure the UART and create the receive thread.
+   *
+   * @param uart 连接 VT13 链路的串口。
+   *             UART connected to the VT13 link.
+   * @param cmd 接收控制数据的 CMD 实例。
+   *            CMD instance that receives the control data.
+   * @param param 构造参数。
+   *              Construction parameters.
    */
   VT13(
       LibXR::UART& uart,
@@ -201,20 +262,26 @@ class VT13
       : cmd_(&cmd), uart_(std::addressof(uart)), sem_(0), op_(sem_, 64)
   {
     uart_->SetConfig({921600, LibXR::UART::Parity::NO_PARITY, 8, 1});
-    /* 创建UART线程 */
     thread_uart_.Create(this, ThreadVT13, "uart_vt13", param.task_stack_depth_uart,
                         param.thread_priority_uart);
   }
 
   /**
-   * @brief 获取VT13事件对象
-   * @return LibXR::Event& 事件对象引用
+   * @brief 获取 VT13 的事件对象。
+   *        Get the event object of VT13.
+   *
+   * @return 事件对象引用。
+   *         Reference to the event object.
    */
   LibXR::Event& GetEvent() { return vt13_event_; }
 
   /**
-   * @brief VT13 UART读取线程
-   * @param vt13 VT13实例指针
+   * @brief UART 接收线程：同步帧头、拼帧、解析并输入给 CMD，并检查离线。
+   *        UART receive thread: synchronizes on the header, assembles frames, parses and
+   *        feeds them to CMD, and checks for the offline state.
+   *
+   * @param vt13 VT13 实例。
+   *             VT13 instance.
    */
   static void ThreadVT13(VT13* vt13)
   {
@@ -282,10 +349,17 @@ class VT13
   }
 
   /**
-   * @brief 解析VT13原始帧并生成CMD控制数据
-   * @param raw_data 21字节原始缓冲
-   * @param output_data 解析后的CMD数据
-   * @return LibXR::ErrorCode::OK 解析成功；其他值表示校验或数据范围异常
+   * @brief 校验并解析一帧，生成 CMD 控制数据并发出事件。
+   *        Validate and parse one frame, produce the CMD control data and emit events.
+   *
+   * @param raw_data 21 字节原始帧。
+   *                 Raw 21-byte frame.
+   * @param output_data 解析得到的 CMD 数据。
+   *                    Parsed CMD data.
+   * @return 成功为 `ErrorCode::OK`；指针为空为 `PTR_NULL`；帧头、CRC 或数值范围不符为
+   *         `CHECK_ERR`。
+   *         `ErrorCode::OK` on success, `PTR_NULL` for a null pointer, `CHECK_ERR` when
+   *         the header, the CRC or a value range does not match.
    */
   LibXR::ErrorCode ParseRC(const uint8_t* raw_data, CMD::Data& output_data)
   {
@@ -588,8 +662,9 @@ class VT13
   }
 
   /**
-   * @brief 离线安全输出
-   * @details 将控制量归零并标记离线，防止链路中断时保持危险状态
+   * @brief 离线输出：把控制量归零、标记离线、清除切换状态并输入给 CMD。
+   *        Offline output: zero the control values, mark the link offline, clear the
+   *        toggle states and feed the result to CMD.
    */
   void Offline()
   {
@@ -646,11 +721,17 @@ class VT13
   LibXR::MillisecondTimestamp last_time_{}; /* 上次接收时间 */
 
   /**
-   * @brief 从任意位偏移提取指定位宽数据
-   * @param raw_data 原始字节流
-   * @param bit_offset 起始bit偏移
-   * @param bit_len 提取bit长度
-   * @return 提取后的无符号值
+   * @brief 从任意位偏移提取指定位宽的数据。
+   *        Extract a field of the given bit width from an arbitrary bit offset.
+   *
+   * @param raw_data 原始字节流。
+   *                 Raw byte stream.
+   * @param bit_offset 起始位偏移。
+   *                   Start bit offset.
+   * @param bit_len 位宽。
+   *                Bit width.
+   * @return 提取的无符号值。
+   *         The extracted unsigned value.
    */
   static uint32_t ExtractBits(const uint8_t* raw_data, uint16_t bit_offset,
                               uint8_t bit_len)
@@ -667,7 +748,15 @@ class VT13
   }
 
   /**
-   * @brief 读取小端16位整数
+   * @brief 读取小端 16 位整数。
+   *        Read a little-endian 16-bit integer.
+   *
+   * @param raw_data 原始字节流。
+   *                 Raw byte stream.
+   * @param offset 字节偏移。
+   *               Byte offset.
+   * @return 读取的值。
+   *         The value read.
    */
   static uint16_t ReadLe16(const uint8_t* raw_data, std::size_t offset)
   {
@@ -676,10 +765,14 @@ class VT13
   }
 
   /**
-   * @brief 校验VT13帧CRC
-   * @param raw_data 21字节原始帧
-   * @return true 校验通过
-   * @return false 校验失败
+   * @brief 校验帧 CRC：前 19 字节的 CRC16 与帧尾 2 字节小端值比较。
+   *        Verify the frame CRC: the CRC16 of the first 19 bytes is compared with the
+   *        little-endian value in the last 2 bytes.
+   *
+   * @param raw_data 21 字节原始帧。
+   *                 Raw 21-byte frame.
+   * @return 校验通过为 true。
+   *         True when the check passes.
    */
   bool VerifyCRC(const uint8_t* raw_data)
   {
@@ -692,9 +785,11 @@ class VT13
   }
 
   /**
-   * @brief 拨轮触碰事件
-   * @details
-   * 上拨短触发/上拨长触发/下拨触发。
+   * @brief 按拨轮值发出上拨短触、上拨长触与下拨事件。
+   *        Emit the dial up-short, up-long and down events from the dial value.
+   *
+   * @param curr_dial 当前拨轮值。
+   *                  Current dial value.
    */
   void ActiveDialTouchEvent(uint16_t curr_dial)
   {
@@ -743,8 +838,9 @@ class VT13
   }
 
   /**
-   * @brief 在线状态巡检
-   * @details 连续100ms未收到有效帧即判定离线
+   * @brief 检查在线状态：超过 100 ms 没有有效帧时执行一次 `Offline()`。
+   *        Check the online state: `Offline()` runs once when no valid frame arrived for
+   *        more than 100 ms.
    */
   void CheckoutOffline()
   {
