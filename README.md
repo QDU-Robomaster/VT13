@@ -88,7 +88,7 @@ An instance written by `xrobot instance add QDU-Robomaster/VT13`, with `uart` se
 ```yaml
 modules:
   - module: QDU-Robomaster/VT13
-    id: vt13_0
+    id: vt13
     args:
       - uart: usart6
       - cmd: cmd
