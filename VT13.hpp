@@ -2,9 +2,9 @@
 
 #include <memory>
 
-/* clang-format off */
+// clang-format off
 /* === MODULE MANIFEST V2 ===
-module_description: VT13 link receiver parsing
+module_description: VT13 链路遥控解析模块：从 UART 接收 21 字节协议帧，向 CMD 输入控制量并发出事件 / VT13 link remote controller Module that receives 21-byte frames over UART, feeds control data to CMD and emits events
 depends:
 - id: QDU-Robomaster/CMD
   ref: same-or-dev
@@ -644,8 +644,6 @@ class VT13
   LibXR::Semaphore sem_;                    /* 读操作信号量 */
   LibXR::ReadOperation op_;                 /* 读操作（阻塞型） */
   LibXR::MillisecondTimestamp last_time_{}; /* 上次接收时间 */
-
-  /*--------------------------工具函数-------------------------------------------------*/
 
   /**
    * @brief 从任意位偏移提取指定位宽数据
