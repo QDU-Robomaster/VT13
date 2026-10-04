@@ -32,7 +32,7 @@ The control source defaults to remote controller mode; Shift+Ctrl+Q switches to 
 
 - 挡位开关变化：`VT13_SW_POS_C` / `N` / `S`（0 到 2）。
 - 自定义左键、右键、暂停键、扳机的按下与松开：`VT13_KEY_PRESSED_*` / `VT13_KEY_RELEASE_*`（`0x100` 到 `0x107`）。
-- 切换结果（`0x130` 到 `0x135`）：自定义左键每次按下翻转一次，发出 `VT13_KEY_CUSTOM_L_TOGGLE_ON` 或 `OFF`；自定义右键同理发出 `VT13_KEY_CUSTOM_R_TOGGLE_ON` 或 `OFF`；暂停键翻转后发出 `VT13_KEY_PAUSE_TOGGLE_ON` 或 `OFF`，右键切换为 ON 时暂停键发出 OFF。
+- 切换结果（`0x130` 到 `0x135`）：自定义左键每次按下翻转一次，发出 `VT13_KEY_CUSTOM_L_TOGGLE_ON` 或 `OFF`；自定义右键同理发出 `VT13_KEY_CUSTOM_R_TOGGLE_ON` 或 `OFF`；暂停键翻转后发出 `VT13_KEY_PAUSE_TOGGLE_ON` 或 `OFF`；右键切换状态为 ON 时，按下暂停键发出 OFF。
 - 拨轮（阈值为中值 ±180）：上拨后 500 ms 内回中发出 `VT13_DIAL_UP_SHORT`，上拨保持 500 ms 发出 `VT13_DIAL_UP_LONG`，下拨发出 `VT13_DIAL_DOWN_TOUCH`（`0x120` 到 `0x122`）。
 - 键盘按下（上升沿）：`Key::KEY_W` 到 `KEY_B`；同时按住 Shift、Ctrl 或 Shift+Ctrl 时，事件 ID 分别加上 1、2、3 倍 `KEY_NUM`，可用 `ShiftWith()`、`CtrlWith()`、`ShiftCtrlWith()` 计算。
 - 鼠标（键鼠模式）：`KEY_L_PRESS`、`KEY_R_PRESS`、`KEY_M_PRESS` 及对应的 `*_RELEASE`。
